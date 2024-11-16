@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: |
-  Producto para Desplegar una Función AWS Lambda con Integración Opcional con SQS.
+  Producto para Desplegar una Función AWS Lambda con Integración Opcional con SQS y actualizaciones a través de S3.
 
 Parameters:
   LambdaFunctionName:
@@ -27,6 +27,11 @@ Parameters:
     Description: "ARN de la cola SQS que desencadenará la función Lambda (opcional)."
     Default: ''
 
+  CodeS3Key:
+    Type: String
+    Description: "Clave S3 (ruta) para el archivo zip del código Lambda."
+    Default: ''
+
   BatchSize:
     Type: Number
     Description: "Tamaño del lote para procesar mensajes desde SQS."
@@ -51,8 +56,19 @@ Parameters:
 
 Conditions:
   HasSQSQueueARN: !Not [ !Equals [ !Ref SQSQueueARN, '' ] ]
+  HasCustomS3Key: !Not [ !Equals [ !Ref CodeS3Key, '' ] ]
 
 Resources:
+  LambdaS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${LambdaFunctionName}-code-bucket-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -73,7 +89,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:GetObject
-                Resource: '*'
+                Resource: !Sub 'arn:aws:s3:::${LambdaS3Bucket}/*'
         - PolicyName: LambdaSQSAccessPolicy
           PolicyDocument:
             Version: '2012-10-17'
@@ -83,7 +99,6 @@ Resources:
                   - sqs:ReceiveMessage
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
-                  - sqs:GetQueueUrl
                 Resource: !If [HasSQSQueueARN, !Ref SQSQueueARN, '*']
 
   LambdaFunction:
@@ -109,6 +124,7 @@ Resources:
               body: JSON.stringify({ message: 'Batch processed successfully' })
             };
           };
+      Timeout: 60
 
   SQSQueueEventSourceMapping:
     Condition: HasSQSQueueARN
@@ -126,6 +142,10 @@ Outputs:
   LambdaFunctionName:
     Description: "Nombre de la función Lambda."
     Value: !Ref LambdaFunctionName
+
+  LambdaS3BucketName:
+    Description: "Nombre del bucket S3 para actualizaciones."
+    Value: !Ref LambdaS3Bucket
 
   LambdaExecutionRoleArn:
     Description: "ARN del rol de ejecución de Lambda."

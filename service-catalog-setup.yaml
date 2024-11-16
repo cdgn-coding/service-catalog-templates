@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Plantilla de CloudFormation para crear un Bucket S3, un Rol IAM con Política específica, y un Portafolio de Service Catalog.
+  Esta plantilla emite los ARNs del Portafolio, Bucket S3, Rol IAM y la Política IAM para facilitar su uso posterior.
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Nombre del bucket S3 para almacenar plantillas de Service Catalog.
+    Default: 'mi-bucket-service-catalog'
+  
+  IAMRoleName:
+    Type: String
+    Description: Nombre del rol IAM para el portafolio de Service Catalog.
+    Default: 'ServiceCatalogRolePoC'
+  
+  IAMPolicyName:
+    Type: String
+    Description: Nombre de la política IAM asociada al rol.
+    Default: 'ServiceCatalogPolicyPoC'
+  
+  PortfolioDisplayName:
+    Type: String
+    Description: Nombre para mostrar del portafolio de Service Catalog.
+    Default: 'Desarrollo (PoC)'
+  
+  PortfolioProviderName:
+    Type: String
+    Description: Nombre del proveedor del portafolio de Service Catalog.
+    Default: 'Carlos Nexans'
+  
+  PortfolioDescription:
+    Type: String
+    Description: Descripción del portafolio de Service Catalog.
+    Default: 'Portafolio de productos para desarrollo de software.'
+
+Resources:
+  # 1. Bucket S3 para almacenar plantillas de Service Catalog
+  ServiceCatalogS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 2. Rol IAM específico para Service Catalog
+  ServiceCatalogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref IAMRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: servicecatalog.amazonaws.com
+            Action: sts:AssumeRole
+      Description: Rol para usar Service Catalog con permisos para Lambda, S3 y SQS.
+
+  # 3. Política IAM gestionada para el Rol
+  ServiceCatalogPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Ref IAMPolicyName
+      Description: >
+        Política para el rol de Service Catalog que permite interactuar con Lambda, S3 y SQS.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:*
+              - s3:GetObject
+              - s3:PutObject
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Resource: "*"
+
+  # 4. Adjuntar la Política al Rol IAM
+  AttachServiceCatalogPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Ref IAMPolicyName
+      Roles:
+        - !Ref ServiceCatalogRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:*
+              - s3:GetObject
+              - s3:PutObject
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Resource: "*"
+
+  # 5. Portafolio de Service Catalog
+  ServiceCatalogPortfolio:
+    Type: AWS::ServiceCatalog::Portfolio
+    Properties:
+      DisplayName: !Ref PortfolioDisplayName
+      ProviderName: !Ref PortfolioProviderName
+      Description: !Ref PortfolioDescription
+
+Outputs:
+  # ARN del Portafolio de Service Catalog
+  ServiceCatalogPortfolioId:
+    Description: ID del Portafolio de Service Catalog.
+    Value: !Ref ServiceCatalogPortfolio
+  
+  # ARN del Bucket S3
+  ServiceCatalogS3BucketArn:
+    Description: ARN del bucket S3 para almacenar plantillas de Service Catalog.
+    Value: !GetAtt ServiceCatalogS3Bucket.Arn
+  
+  # ARN del Rol IAM
+  ServiceCatalogIAMRoleArn:
+    Description: ARN del rol IAM específico para el portafolio de Service Catalog.
+    Value: !GetAtt ServiceCatalogRole.Arn
+  
+  # ARN de la Política IAM
+  ServiceCatalogIAMPolicyArn:
+    Description: ARN de la política IAM asociada al rol de Service Catalog.
+    Value: !Ref ServiceCatalogPolicy

@@ -99,6 +99,7 @@ Resources:
                   - sqs:ReceiveMessage
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
                 Resource: !If [HasSQSQueueARN, !Ref SQSQueueARN, '*']
 
   LambdaFunction:

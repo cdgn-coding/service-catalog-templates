@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  **Producto para Desplegar una Función AWS Lambda con Integración Opcional con SQS**
+
+  Instrucciones:
+  1. Proporciona los parámetros necesarios para crear la función Lambda, como `LambdaFunctionName`, `Runtime` y `Handler`.
+  2. Opcionalmente, proporciona el ARN de una cola SQS en `SQSQueueARN` si deseas que la Lambda sea invocada automáticamente por la cola.
+  3. Configura los parámetros `BatchSize` y `MaximumBatchingWindowInSeconds` para ajustar cómo la Lambda procesa mensajes desde SQS.
+  4. La plantilla creará:
+     - Una función Lambda con el runtime y el handler especificados.
+     - Un bucket S3 para almacenar el código de la función Lambda.
+     - Un mapeo de la fuente de eventos (si se proporciona un ARN de SQS).
+  5. Después de aprovisionar este producto, copia el output `GitHubActionYAML` y pégalo en tu repositorio como `.github/workflows/deploy.yml`.
+  6. Asegúrate de configurar los secretos `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY` en tu repositorio de GitHub.
+
+Parameters:
+  LambdaFunctionName:
+    Type: String
+    Description: Nombre de la función AWS Lambda.
+  Runtime:
+    Type: String
+    Description: Entorno de ejecución para la función Lambda.
+    AllowedValues:
+      - nodejs18.x
+      - nodejs16.x
+      - python3.9
+      - python3.8
+      - go1.x
+  Handler:
+    Type: String
+    Description: El manejador de la función Lambda que se ejecutará.
+  SQSQueueARN:
+    Type: String
+    Description: ARN de la cola SQS que desencadenará la función Lambda (opcional).
+    Default: ''
+  CodeS3Key:
+    Type: String
+    Description: Clave S3 (ruta) para el archivo zip del código Lambda.
+    Default: 'function.zip'
+  BatchSize:
+    Type: Number
+    Description: Tamaño del lote para procesar mensajes desde SQS.
+    Default: 10
+    MinValue: 1
+    MaxValue: 10000
+  MaximumBatchingWindowInSeconds:
+    Type: Number
+    Description: Tiempo máximo en segundos para acumular mensajes antes de invocar la Lambda.
+    Default: 0
+    MinValue: 0
+    MaxValue: 300
+  Enabled:
+    Type: String
+    Description: Habilitar o deshabilitar la integración con SQS.
+    AllowedValues: 
+      - true
+      - false
+    Default: true
+
+Conditions:
+  HasSQSQueueARN: !Not [ !Equals [ !Ref SQSQueueARN, '' ] ]
+
+Resources:
+  LambdaS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${LambdaFunctionName}-code-bucket-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${LambdaFunctionName}-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaS3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub 'arn:aws:s3:::${LambdaS3Bucket}/*'
+        - PolicyName: LambdaSQSAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !If [HasSQSQueueARN, !Ref SQSQueueARN, AWS::NoValue]
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Runtime: !Ref Runtime
+      Handler: !Ref Handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref LambdaS3Bucket
+        S3Key: !Ref CodeS3Key
+      Timeout: 60
+
+  SQSQueueEventSourceMapping:
+    Condition: HasSQSQueueARN
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !Ref SQSQueueARN
+      FunctionName: !Ref LambdaFunction
+      BatchSize: !Ref BatchSize
+      MaximumBatchingWindowInSeconds: !Ref MaximumBatchingWindowInSeconds
+      Enabled: !Ref Enabled
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+
+Outputs:
+  LambdaFunctionName:
+    Description: Nombre de la función Lambda.
+    Value: !Ref LambdaFunctionName
+
+  LambdaS3BucketName:
+    Description: Nombre del bucket S3 donde se almacenará el código.
+    Value: !Ref LambdaS3Bucket
+
+  GitHubActionYAML:
+    Description: |
+      Archivo de GitHub Actions para subir código a S3 y actualizar Lambda.
+      Copia y pega este contenido en tu archivo `.github/workflows/deploy.yml`:
+
+      ```yaml
+      name: Desplegar Función Lambda
+
+      on:
+        push:
+          branches:
+            - main
+          paths:
+            - 'src/**'
+
+      jobs:
+        deploy:
+          runs-on: ubuntu-latest
+
+          env:
+            LAMBDA_FUNCTION_NAME: '${LambdaFunctionName}'
+            LAMBDA_S3_BUCKET: '${LambdaS3Bucket}'
+            AWS_REGION: '${AWS::Region}'
+
+          steps:
+            - name: Checkout del código
+              uses: actions/checkout@v3
+
+            - name: Configurar credenciales de AWS
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ env.AWS_REGION }}
+
+            - name: Comprimir el código de la función Lambda
+              run: |
+                zip -j function.zip src/*
+
+            - name: Subir código a S3
+              run: |
+                aws s3 cp function.zip s3://${{ env.LAMBDA_S3_BUCKET }}/function.zip
+
+            - name: Actualizar el código de la función Lambda
+              run: |
+                aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME }} --s3-bucket ${{ env.LAMBDA_S3_BUCKET }} --s3-key function.zip
+      ```

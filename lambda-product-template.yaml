@@ -65,6 +65,26 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaS3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: '*'
+        - PolicyName: LambdaSQSAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                Resource: !If [HasSQSQueueARN, !Ref SQSQueueARN, '*']
 
   LambdaFunction:
     Type: AWS::Lambda::Function
@@ -80,7 +100,6 @@ Resources:
           exports.handler = async (event) => {
             console.log('Received event:', JSON.stringify(event, null, 2));
 
-            // Procesar los mensajes del lote recibido
             for (const record of event.Records) {
               console.log('Message Body:', record.body);
             }
@@ -107,3 +126,7 @@ Outputs:
   LambdaFunctionName:
     Description: "Nombre de la función Lambda."
     Value: !Ref LambdaFunctionName
+
+  LambdaExecutionRoleArn:
+    Description: "ARN del rol de ejecución de Lambda."
+    Value: !GetAtt LambdaExecutionRole.Arn

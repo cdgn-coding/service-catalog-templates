@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Producto para crear una cola SQS con parámetros personalizables. 
+
+Parameters:
+  QueueName:
+    Type: String
+    Description: "Nombre de la cola SQS."
+    Default: "MySQSQueue"
+
+  VisibilityTimeout:
+    Type: Number
+    Description: "Tiempo en segundos para el parámetro de Visibility Timeout."
+    Default: 30
+    MinValue: 0
+    MaxValue: 43200
+
+  MessageRetentionPeriod:
+    Type: Number
+    Description: "Periodo en segundos para retener los mensajes en la cola."
+    Default: 345600
+    MinValue: 60
+    MaxValue: 1209600
+
+  DelaySeconds:
+    Type: Number
+    Description: "Tiempo en segundos para retrasar los mensajes al ser recibidos."
+    Default: 0
+    MinValue: 0
+    MaxValue: 900
+
+  MaxMessageSize:
+    Type: Number
+    Description: "Tamaño máximo del mensaje en bytes."
+    Default: 262144
+    MinValue: 1024
+    MaxValue: 262144
+
+  ReceiveMessageWaitTimeSeconds:
+    Type: Number
+    Description: "Tiempo de espera para recibir un mensaje en segundos."
+    Default: 0
+    MinValue: 0
+    MaxValue: 20
+
+Resources:
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+      VisibilityTimeout: !Ref VisibilityTimeout
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      DelaySeconds: !Ref DelaySeconds
+      MaximumMessageSize: !Ref MaxMessageSize
+      ReceiveMessageWaitTimeSeconds: !Ref ReceiveMessageWaitTimeSeconds
+
+Outputs:
+  QueueURL:
+    Description: "URL de la cola SQS."
+    Value: !Ref SQSQueue
+
+  QueueARN:
+    Description: "ARN de la cola SQS."
+    Value: !GetAtt SQSQueue.Arn
+
+  QueueNameOutput:
+    Description: "Nombre de la cola SQS."
+    Value: !Ref QueueName

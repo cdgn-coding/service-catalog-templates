@@ -13,23 +13,16 @@ Parameters:
     AllowedValues:
       - nodejs18.x
       - nodejs16.x
-      - python3.9
-      - python3.8
-      - go1.x
 
   Handler:
     Type: String
     Description: "El manejador de la función Lambda que se ejecutará."
+    Default: "index.handler"
 
   SQSQueueARN:
     Type: String
     Description: "ARN de la cola SQS que desencadenará la función Lambda (opcional)."
     Default: ''
-
-  CodeS3Key:
-    Type: String
-    Description: "Clave S3 (ruta) para el archivo zip del código Lambda."
-    Default: 'function.zip'
 
   BatchSize:
     Type: Number
@@ -57,16 +50,6 @@ Conditions:
   HasSQSQueueARN: !Not [ !Equals [ !Ref SQSQueueARN, '' ] ]
 
 Resources:
-  LambdaS3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub '${LambdaFunctionName}-code-bucket-${AWS::AccountId}-${AWS::Region}'
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -79,25 +62,6 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: LambdaS3AccessPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                Resource: !Sub 'arn:aws:s3:::${LambdaS3Bucket}/*'
-        - PolicyName: LambdaSQSAccessPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sqs:ReceiveMessage
-                  - sqs:DeleteMessage
-                  - sqs:GetQueueAttributes
-                Resource: !If [HasSQSQueueARN, !Ref SQSQueueARN, AWS::NoValue]
 
   LambdaFunction:
     Type: AWS::Lambda::Function
@@ -107,9 +71,22 @@ Resources:
       Handler: !Ref Handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        S3Bucket: !Ref LambdaS3Bucket
-        S3Key: !Ref CodeS3Key
-      Timeout: 60
+        ZipFile: |
+          'use strict';
+
+          exports.handler = async (event) => {
+            console.log('Received event:', JSON.stringify(event, null, 2));
+
+            // Procesar los mensajes del lote recibido
+            for (const record of event.Records) {
+              console.log('Message Body:', record.body);
+            }
+
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ message: 'Batch processed successfully' })
+            };
+          };
 
   SQSQueueEventSourceMapping:
     Condition: HasSQSQueueARN
@@ -127,7 +104,3 @@ Outputs:
   LambdaFunctionName:
     Description: "Nombre de la función Lambda."
     Value: !Ref LambdaFunctionName
-
-  LambdaS3BucketName:
-    Description: "Nombre del bucket S3 donde se almacenará el código."
-    Value: !Ref LambdaS3Bucket

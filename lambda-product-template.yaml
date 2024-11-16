@@ -199,3 +199,4 @@ Outputs:
             - name: Update Lambda function
               run: |
                 aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME }} --s3-bucket ${{ env.LAMBDA_S3_BUCKET }} --s3-key function.zip
+      ```

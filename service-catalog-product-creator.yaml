@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Plantilla para un producto de Service Catalog que crea otros productos en el mismo Service Catalog a partir de una plantilla YAML en S3.
+
+Parameters:
+  PortfolioId:
+    Type: String
+    Description: "ID del portafolio existente en Service Catalog donde se creará el nuevo producto"
+  
+  ProductName:
+    Type: String
+    Description: "Nombre del nuevo producto en Service Catalog"
+    Default: 'NuevoProducto'
+  
+  ProductOwner:
+    Type: String
+    Description: "Propietario del nuevo producto en Service Catalog"
+    Default: 'Carlos Nexans'
+  
+  ProductDescription:
+    Type: String
+    Description: "Descripción del nuevo producto en Service Catalog"
+    Default: 'Producto creado desde plantilla proporcionada'
+  
+  ProvisioningArtifactName:
+    Type: String
+    Description: "Nombre del artefacto de aprovisionamiento"
+    Default: 'Versión 1'
+  
+  S3TemplatePath:
+    Type: String
+    Description: "Ruta y nombre del archivo en S3 (e.g., templates/service-catalog-template.yaml)"
+
+Resources:
+  # Crear el producto en Service Catalog usando la plantilla en S3
+  ServiceCatalogProduct:
+    Type: AWS::ServiceCatalog::CloudFormationProduct
+    Properties:
+      Name: !Ref ProductName
+      Owner: !Ref ProductOwner
+      Description: !Ref ProductDescription
+      ProvisioningArtifactParameters:
+        - Name: !Ref ProvisioningArtifactName
+          Info:
+            LoadTemplateFromURL: !Sub "https://s3.amazonaws.com/${S3TemplatePath}"
+          Type: CLOUD_FORMATION_TEMPLATE
+
+  # Asociar el producto al portafolio proporcionado
+  AssociateProductWithPortfolio:
+    Type: AWS::ServiceCatalog::PortfolioProductAssociation
+    Properties:
+      PortfolioId: !Ref PortfolioId
+      ProductId: !Ref ServiceCatalogProduct
+
+Outputs:
+  CreatedProductId:
+    Description: "ID del producto creado en Service Catalog"
+    Value: !Ref ServiceCatalogProduct
+
+  S3TemplateURL:
+    Description: "URL del archivo de plantilla en S3"
+    Value: !Sub "https://s3.amazonaws.com/${S3TemplatePath}"

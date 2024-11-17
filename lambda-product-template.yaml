@@ -57,9 +57,23 @@ Parameters:
   Timeout:
     Type: Number
     Description: "Tiempo máximo de ejecución de la función Lambda en segundos."
-    Default: 60
+    Default: 25
     MinValue: 1
     MaxValue: 900
+
+  MaximumConcurrency:
+    Type: Number
+    Description: "Maximum number of concurrent Lambda executions for SQS processing"
+    Default: 2
+    MinValue: 1
+    MaxValue: 1000
+
+  MaximumRetryAttempts:
+    Type: Number
+    Description: "Maximum number of retry attempts for failed message processing"
+    Default: 2
+    MinValue: 0
+    MaxValue: 185
 
 Conditions:
   HasSQSQueueARN: !Not [ !Equals [ !Ref SQSQueueARN, '' ] ]
@@ -145,6 +159,11 @@ Resources:
       Enabled: !Ref Enabled
       FunctionResponseTypes:
         - ReportBatchItemFailures
+      ScalingConfig:
+        MaximumConcurrency: !Ref MaximumConcurrency
+      FunctionConfig:
+        MaximumBatchingWindowInSeconds: !Ref MaximumBatchingWindowInSeconds
+        MaximumRetryAttempts: !Ref MaximumRetryAttempts
 
 Outputs:
   LambdaFunctionName:

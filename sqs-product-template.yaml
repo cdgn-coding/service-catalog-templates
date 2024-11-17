@@ -43,9 +43,24 @@ Parameters:
     MinValue: 0
     MaxValue: 20
 
+  MaxReceiveCount:
+    Type: Number
+    Description: "Número máximo de intentos de procesamiento antes de enviar a DLQ"
+    Default: 3
+    MinValue: 1
+    MaxValue: 1000
+
 Resources:
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${QueueName}-dlq"
+      VisibilityTimeout: !Ref VisibilityTimeout
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      
   SQSQueue:
     Type: AWS::SQS::Queue
+    DependsOn: DeadLetterQueue
     Properties:
       QueueName: !Ref QueueName
       VisibilityTimeout: !Ref VisibilityTimeout
@@ -53,6 +68,9 @@ Resources:
       DelaySeconds: !Ref DelaySeconds
       MaximumMessageSize: !Ref MaxMessageSize
       ReceiveMessageWaitTimeSeconds: !Ref ReceiveMessageWaitTimeSeconds
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: !Ref MaxReceiveCount
 
 Outputs:
   QueueURL:
@@ -66,3 +84,11 @@ Outputs:
   QueueNameOutput:
     Description: "Nombre de la cola SQS."
     Value: !Ref QueueName
+
+  DeadLetterQueueURL:
+    Description: "URL de la cola DLQ"
+    Value: !Ref DeadLetterQueue
+
+  DeadLetterQueueARN:
+    Description: "ARN de la cola DLQ"
+    Value: !GetAtt DeadLetterQueue.Arn

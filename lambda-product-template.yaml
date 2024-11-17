@@ -159,39 +159,39 @@ Outputs:
     Description: "ARN del rol de ejecución de Lambda."
     Value: !GetAtt LambdaExecutionRole.Arn
 
-  GitHubActionsConfig:
-    Description: "Configuración YAML para GitHub Actions"
-    Value: !Sub |
-      name: Deploy Lambda Function
+  # GitHubActionsConfig:
+  #   Description: "Configuración YAML para GitHub Actions"
+  #   Value: !Sub |
+  #     name: Deploy Lambda Function
       
-      on:
-        push:
-          branches: [ main ]
+  #     on:
+  #       push:
+  #         branches: [ main ]
         
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v2
+  #     jobs:
+  #       deploy:
+  #         runs-on: ubuntu-latest
+  #         steps:
+  #           - uses: actions/checkout@v2
             
-            - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v1
-              with:
-                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                aws-region: ${AWS::Region}
+  #           - name: Configure AWS credentials
+  #             uses: aws-actions/configure-aws-credentials@v1
+  #             with:
+  #               aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #               aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #               aws-region: ${AWS::Region}
             
-            - name: Deploy Lambda
-              uses: aws-actions/aws-cloudformation-deploy@v1
-              with:
-                name: ${LambdaFunctionName}-stack
-                template: lambda-product-template.yaml
-                parameter-overrides: >-
-                  LambdaFunctionName=${LambdaFunctionName},
-                  Runtime=${Runtime},
-                  Handler=${Handler},
-                  SQSQueueARN=${SQSQueueARN},
-                  BatchSize=${BatchSize},
-                  MaximumBatchingWindowInSeconds=${MaximumBatchingWindowInSeconds},
-                  Enabled=${Enabled},
-                  Timeout=${Timeout}
+  #           - name: Deploy Lambda
+  #             uses: aws-actions/aws-cloudformation-deploy@v1
+  #             with:
+  #               name: ${LambdaFunctionName}-stack
+  #               template: lambda-product-template.yaml
+  #               parameter-overrides: >-
+  #                 LambdaFunctionName=${LambdaFunctionName},
+  #                 Runtime=${Runtime},
+  #                 Handler=${Handler},
+  #                 SQSQueueARN=${SQSQueueARN},
+  #                 BatchSize=${BatchSize},
+  #                 MaximumBatchingWindowInSeconds=${MaximumBatchingWindowInSeconds},
+  #                 Enabled=${Enabled},
+  #                 Timeout=${Timeout}

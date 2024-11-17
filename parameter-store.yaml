@@ -85,13 +85,12 @@ Resources:
       - KMSKeyAlias
     Properties:
       Name: !Sub "/${ParameterStoreName}"
-      Type: String
+      Type: "SecureString"
       Value: "placeholder"
       Description: "Parámetro seguro creado para almacenar información sensible"
       Tier: "Standard"
       Tags: 
         Name: !Ref ParameterStoreName
-      KeyId: !Ref KMSKey
 
 Outputs:
   KMSKeyId:

@@ -2,22 +2,14 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: "AWS Service Catalog Template - SSM Parameter Store with KMS Key"
 
 Parameters:
-  ParameterName:
+  ParameterStoreName:
     Type: String
-    Description: "Nombre del parámetro en Parameter Store"
-    Default: "/myapp/parameter"
-    AllowedPattern: "^/.*"
-  ParameterValue:
-    Type: String
-    Description: "Valor para el parámetro"
+    Description: "Nombre del Parameter Store"
+    Default: "Mi aplicación"
   KmsKeyAlias:
     Type: String
     Description: "Alias para la clave KMS"
-    Default: "alias/myapp-key"
-  KmsKeyAdminRole:
-    Type: String
-    Description: "ARN del rol que tendrá permisos administrativos sobre la KMS Key"
-    Default: "arn:aws:iam::123456789012:role/AdminRole"
+    Default: "my-app-key"
 
 Resources:
   # KMS Key para encriptar los parámetros
@@ -29,13 +21,47 @@ Resources:
       KeyPolicy:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
+          - Sid: "Enable IAM User Permissions"
+            Effect: Allow
             Principal:
-              AWS: !Sub "${KmsKeyAdminRole}"
-            Action:
-              - "kms:*"
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
             Resource: "*"
-          - Effect: Allow
+          - Sid: "Allow access for Key Administrators"
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - "kms:Create*"
+              - "kms:Describe*"
+              - "kms:Enable*"
+              - "kms:List*"
+              - "kms:Put*"
+              - "kms:Update*"
+              - "kms:Revoke*"
+              - "kms:Disable*"
+              - "kms:Get*"
+              - "kms:Delete*"
+              - "kms:TagResource"
+              - "kms:UntagResource"
+              - "kms:ScheduleKeyDeletion"
+              - "kms:CancelKeyDeletion"
+            Resource: "*"
+            Condition:
+              StringEquals:
+                'aws:PrincipalType': "User"
+              StringLike:
+                'aws:PrincipalArn': !Sub "arn:aws:iam::${AWS::AccountId}:user/admin/*"
+          - Sid: "Allow SSM service to use the key"
+            Effect: Allow
+            Principal:
+              Service: "ssm.amazonaws.com"
+            Action:
+              - "kms:Decrypt"
+              - "kms:GenerateDataKey*"
+            Resource: "*"
+          - Sid: "Allow use of the key for SSM"
+            Effect: Allow
             Principal:
               AWS: "*"
             Action:
@@ -54,23 +80,28 @@ Resources:
     Properties:
       AliasName: !Sub "${KmsKeyAlias}"
       TargetKeyId: !Ref KMSKey
-
-  # Parámetro en SSM Parameter Store
   SSMParameter:
     Type: "AWS::SSM::Parameter"
+    DependsOn: 
+      - KMSKey
+      - KMSKeyAlias
     Properties:
-      Name: !Ref ParameterName
+      Name: !Sub "/${ParameterStoreName}"  # Agregamos "/" al inicio para seguir las mejores prácticas
       Type: "SecureString"
-      Value: !Ref ParameterValue
+      Value: "placeholder"  # AWS requiere un valor, usamos placeholder
+      Description: "Parámetro seguro creado para almacenar información sensible"
       KeyId: !Ref KMSKey
 
 Outputs:
   KMSKeyId:
     Description: "ID de la clave KMS creada"
     Value: !Ref KMSKey
-  SSMParameterName:
+  KMSKeyAlias:
+    Description: "Alias de la clave KMS"
+    Value: !Ref KMSKeyAlias
+  ParameterName:
     Description: "Nombre del parámetro creado en SSM Parameter Store"
-    Value: !Ref ParameterName
-  SSMParameterValue:
-    Description: "Valor del parámetro"
-    Value: !Ref ParameterValue
+    Value: !Sub "/${ParameterStoreName}"
+  ParameterStoreConsoleLink:
+    Description: "Link directo al parámetro en la consola de AWS"
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${ParameterStoreName}/description?region=${AWS::Region}"

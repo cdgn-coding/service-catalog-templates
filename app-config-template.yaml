@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS Service Catalog Template - Configuración de Variables de Entorno con AppConfig"
+
+Parameters:
+  AppConfigApplicationName:
+    Type: String
+    Description: "Nombre de la aplicación en AppConfig"
+    Default: "MyApp"
+  AppConfigEnvironmentName:
+    Type: String
+    Description: "Nombre del entorno en AppConfig"
+    Default: "Development"
+  AppConfigConfigurationProfileName:
+    Type: String
+    Description: "Nombre del perfil de configuración en AppConfig"
+    Default: "EnvVariables"
+  EnvironmentVariables:
+    Type: String
+    Description: "Variables de entorno en formato JSON (ejemplo: {\"VAR1\":\"value1\",\"VAR2\":\"value2\"})"
+    Default: "{}"
+
+Resources:
+  # Aplicación en AppConfig
+  AppConfigApplication:
+    Type: AWS::AppConfig::Application
+    Properties:
+      Name: !Ref AppConfigApplicationName
+      Description: "Aplicación para gestionar variables de entorno"
+
+  # Entorno en AppConfig
+  AppConfigEnvironment:
+    Type: AWS::AppConfig::Environment
+    Properties:
+      ApplicationId: !Ref AppConfigApplication
+      Name: !Ref AppConfigEnvironmentName
+      Description: "Entorno de la aplicación en AppConfig"
+
+  # Perfil de Configuración en AppConfig
+  AppConfigConfigurationProfile:
+    Type: AWS::AppConfig::ConfigurationProfile
+    Properties:
+      ApplicationId: !Ref AppConfigApplication
+      Name: !Ref AppConfigConfigurationProfileName
+      LocationUri: "hosted"
+      Type: "AWS.FreeformJson"
+      Description: "Perfil para variables de entorno"
+      Validators: []
+
+  # Configuración hospedada (Hosted Configuration Version)
+  AppConfigHostedConfigurationVersion:
+    Type: AWS::AppConfig::HostedConfigurationVersion
+    Properties:
+      ApplicationId: !Ref AppConfigApplication
+      ConfigurationProfileId: !Ref AppConfigConfigurationProfile
+      Content: !Ref EnvironmentVariables
+      ContentType: "application/json"
+
+  # Estrategia de Despliegue (Deployment Strategy)
+  AppConfigDeploymentStrategy:
+    Type: AWS::AppConfig::DeploymentStrategy
+    Properties:
+      Name: "InstantDeployment"
+      DeploymentDurationInMinutes: 0
+      GrowthFactor: 100
+      FinalBakeTimeInMinutes: 0
+      ReplicateTo: NONE
+
+  # Implementación de AppConfig
+  AppConfigDeployment:
+    Type: AWS::AppConfig::Deployment
+    Properties:
+      ApplicationId: !Ref AppConfigApplication
+      EnvironmentId: !Ref AppConfigEnvironment
+      DeploymentStrategyId: !Ref AppConfigDeploymentStrategy
+      ConfigurationProfileId: !Ref AppConfigConfigurationProfile
+      ConfigurationVersion: !GetAtt AppConfigHostedConfigurationVersion.VersionNumber
+      Description: "Despliegue de variables de entorno"
+
+Outputs:
+  AppConfigApplicationId:
+    Description: "ID de la aplicación en AppConfig"
+    Value: !Ref AppConfigApplication
+  AppConfigEnvironmentId:
+    Description: "ID del entorno en AppConfig"
+    Value: !Ref AppConfigEnvironment
+  AppConfigConfigurationProfileId:
+    Description: "ID del perfil de configuración en AppConfig"
+    Value: !Ref AppConfigConfigurationProfile

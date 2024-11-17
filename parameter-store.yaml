@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS Service Catalog Template - SSM Parameter Store with KMS Key"
+
+Parameters:
+  ParameterName:
+    Type: String
+    Description: "Nombre del parámetro en Parameter Store"
+    Default: "/myapp/parameter"
+    AllowedPattern: "^/.*"
+  ParameterValue:
+    Type: String
+    Description: "Valor para el parámetro"
+  KmsKeyAlias:
+    Type: String
+    Description: "Alias para la clave KMS"
+    Default: "alias/myapp-key"
+  KmsKeyAdminRole:
+    Type: String
+    Description: "ARN del rol que tendrá permisos administrativos sobre la KMS Key"
+    Default: "arn:aws:iam::123456789012:role/AdminRole"
+
+Resources:
+  # KMS Key para encriptar los parámetros
+  KMSKey:
+    Type: "AWS::KMS::Key"
+    Properties:
+      Description: "KMS Key para encriptar SSM Parameter Store"
+      Enabled: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "${KmsKeyAdminRole}"
+            Action:
+              - "kms:*"
+            Resource: "*"
+          - Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:DescribeKey"
+            Resource: "*"
+            Condition:
+              StringEquals:
+                "kms:ViaService": !Sub "ssm.${AWS::Region}.amazonaws.com"
+  # Alias para la KMS Key
+  KMSKeyAlias:
+    Type: "AWS::KMS::Alias"
+    Properties:
+      AliasName: !Sub "${KmsKeyAlias}"
+      TargetKeyId: !Ref KMSKey
+
+  # Parámetro en SSM Parameter Store
+  SSMParameter:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: !Ref ParameterName
+      Type: "SecureString"
+      Value: !Ref ParameterValue
+      KeyId: !Ref KMSKey
+
+Outputs:
+  KMSKeyId:
+    Description: "ID de la clave KMS creada"
+    Value: !Ref KMSKey
+  SSMParameterName:
+    Description: "Nombre del parámetro creado en SSM Parameter Store"
+    Value: !Ref ParameterName
+  SSMParameterValue:
+    Description: "Valor del parámetro"
+    Value: !Ref ParameterValue

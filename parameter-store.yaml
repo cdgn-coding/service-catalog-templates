@@ -8,6 +8,21 @@ Parameters:
     Default: "my-app"
     AllowedPattern: "^[a-z][a-z0-9-]*[a-z0-9]$"
     ConstraintDescription: "Debe usar formato kebab-case (letras minúsculas, números y guiones). Debe comenzar con letra y terminar con letra o número. Ejemplo: my-app"
+  
+  ParameterType:
+    Type: String
+    Description: "Tipo de parámetro"
+    Default: "String"
+    AllowedValues: 
+      - "String"
+      - "StringList"
+      - "SecureString"
+  
+  ParameterValue:
+    Type: String
+    Description: "Valor inicial del parámetro"
+    Default: "placeholder"
+    NoEcho: true
 
 Resources:
   # KMS Key para encriptar los parámetros
@@ -85,9 +100,9 @@ Resources:
       - KMSKeyAlias
     Properties:
       Name: !Sub "/${ParameterStoreName}"
-      Type: "SecureString"
-      Value: "placeholder"
-      Description: "Parámetro seguro creado para almacenar información sensible"
+      Type: !Ref ParameterType
+      Value: !Ref ParameterValue
+      Description: "Parámetro creado para almacenar información"
       Tier: "Standard"
       Tags: 
         Name: !Ref ParameterStoreName

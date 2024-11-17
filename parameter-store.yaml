@@ -4,12 +4,10 @@ Description: "AWS Service Catalog Template - SSM Parameter Store with KMS Key"
 Parameters:
   ParameterStoreName:
     Type: String
-    Description: "Nombre del Parameter Store"
-    Default: "Mi aplicación"
-  KmsKeyAlias:
-    Type: String
-    Description: "Alias para la clave KMS"
-    Default: "my-app-key"
+    Description: "Nombre del Parameter Store (formato kebab-case, ejemplo: my-app)"
+    Default: "my-app"
+    AllowedPattern: "^[a-z][a-z0-9-]*[a-z0-9]$"
+    ConstraintDescription: "Debe usar formato kebab-case (letras minúsculas, números y guiones). Debe comenzar con letra y terminar con letra o número. Ejemplo: my-app"
 
 Resources:
   # KMS Key para encriptar los parámetros
@@ -78,7 +76,7 @@ Resources:
   KMSKeyAlias:
     Type: "AWS::KMS::Alias"
     Properties:
-      AliasName: !Sub "${KmsKeyAlias}"
+      AliasName: !Sub "alias/${ParameterStoreName}-kms"
       TargetKeyId: !Ref KMSKey
   SSMParameter:
     Type: "AWS::SSM::Parameter"
@@ -86,10 +84,13 @@ Resources:
       - KMSKey
       - KMSKeyAlias
     Properties:
-      Name: !Sub "/${ParameterStoreName}"  # Agregamos "/" al inicio para seguir las mejores prácticas
-      Type: "SecureString"
-      Value: "placeholder"  # AWS requiere un valor, usamos placeholder
+      Name: !Sub "/${ParameterStoreName}"
+      Type: String
+      Value: "placeholder"
       Description: "Parámetro seguro creado para almacenar información sensible"
+      Tier: "Standard"
+      Tags: 
+        Name: !Ref ParameterStoreName
       KeyId: !Ref KMSKey
 
 Outputs:
@@ -98,7 +99,7 @@ Outputs:
     Value: !Ref KMSKey
   KMSKeyAlias:
     Description: "Alias de la clave KMS"
-    Value: !Ref KMSKeyAlias
+    Value: !Sub "${ParameterStoreName}-kms"
   ParameterName:
     Description: "Nombre del parámetro creado en SSM Parameter Store"
     Value: !Sub "/${ParameterStoreName}"

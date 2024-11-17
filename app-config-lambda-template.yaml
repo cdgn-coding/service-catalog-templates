@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS Service Catalog Template - Configurar variables de entorno de una función Lambda con AppConfig"
+
+Parameters:
+  TargetLambdaFunctionArn:
+    Type: String
+    Description: "ARN de la función Lambda que se va a actualizar"
+  TargetLambdaExecutionRoleArn:
+    Type: String
+    Description: "ARN del rol de ejecución de la función Lambda"
+  AppConfigApplicationId:
+    Type: String
+    Description: "ID de la aplicación en AWS AppConfig"
+  AppConfigEnvironmentId:
+    Type: String
+    Description: "ID del entorno en AWS AppConfig"
+  AppConfigConfigurationProfileId:
+    Type: String
+    Description: "ID del perfil de configuración en AWS AppConfig"
+
+Resources:
+  # Rol de ejecución para la función Lambda de recurso personalizado
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "UpdateLambdaEnvRole-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaUpdatePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:GetFunctionConfiguration
+                  - lambda:UpdateFunctionConfiguration
+                Resource: !Ref TargetLambdaFunctionArn
+
+  # Recurso personalizado que invoca la función Lambda para actualizar las variables de entorno
+  UpdateLambdaEnvCustomResource:
+    Type: Custom::UpdateLambdaEnv
+    Properties:
+      ServiceToken: !GetAtt UpdateLambdaEnvFunction.Arn
+      TargetLambdaFunctionArn: !Ref TargetLambdaFunctionArn
+      AppConfigApplicationId: !Ref AppConfigApplicationId
+      AppConfigEnvironmentId: !Ref AppConfigEnvironmentId
+      AppConfigConfigurationProfileId: !Ref AppConfigConfigurationProfileId
+
+  # Añadir permisos de AppConfig al rol de ejecución de la función Lambda objetivo
+  UpdateTargetLambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AllowAppConfigAccess
+      Roles:
+        - !Ref TargetLambdaExecutionRoleArn
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - appconfig:StartConfigurationSession
+              - appconfig:GetLatestConfiguration
+            Resource: '*'
+
+Outputs:
+  Message:
+    Description: "Variables de entorno configuradas en la función Lambda"
+    Value: "La función Lambda ha sido actualizada para utilizar AppConfig"
+

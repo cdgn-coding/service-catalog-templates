@@ -157,11 +157,8 @@ Resources:
       BatchSize: !Ref BatchSize
       MaximumBatchingWindowInSeconds: !Ref MaximumBatchingWindowInSeconds
       Enabled: !Ref Enabled
-      FunctionResponseTypes:
-        - ReportBatchItemFailures
       ScalingConfig:
         MaximumConcurrency: !Ref MaximumConcurrency
-      MaximumRetryAttempts: !Ref MaximumRetryAttempts
 
 Outputs:
   LambdaFunctionName:

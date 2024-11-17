@@ -42,7 +42,7 @@ Resources:
       ApplicationId: !Ref AppConfigApplication
       Name: !Ref AppConfigConfigurationProfileName
       LocationUri: "hosted"
-      Type: "AWS.FreeformJson"
+      Type: "AWS.Freeform"
       Description: "Perfil para variables de entorno"
       Validators: []
 

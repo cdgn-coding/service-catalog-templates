@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS Service Catalog Template - Invitar a un Usuario a AWS Organizations"
+
+Parameters:
+  TargetEmail:
+    Type: String
+    Description: "Email de la cuenta de AWS que deseas invitar a tu organización"
+    AllowedPattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    ConstraintDescription: "Debe ser un email válido"
+  
+  TargetAccountId:
+    Type: String
+    Description: "ID de la cuenta de AWS que deseas invitar (opcional)"
+    Default: ""
+    AllowedPattern: "^[0-9]{12}$"
+    ConstraintDescription: "Debe ser un ID de cuenta AWS válido (12 dígitos)"
+
+Resources:
+  # Crear el rol para la función Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowOrganizationsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - organizations:InviteAccountToOrganization
+                  - organizations:DescribeHandshake
+                Resource: "*"
+
+  # Función Lambda para invitar a una cuenta a AWS Organizations
+  InviteAccountFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+
+          def handler(event, context):
+              org_client = boto3.client('organizations')
+              email = event['ResourceProperties']['TargetEmail']
+              account_id = event['ResourceProperties'].get('TargetAccountId', None)
+
+              try:
+                  # Enviar invitación a la cuenta
+                  if account_id:
+                      response = org_client.invite_account_to_organization(
+                          Target={
+                              'Id': account_id,
+                              'Type': 'ACCOUNT'
+                          }
+                      )
+                  else:
+                      response = org_client.invite_account_to_organization(
+                          Target={
+                              'Id': email,
+                              'Type': 'EMAIL'
+                          }
+                      )
+                  handshake_id = response['Handshake']['Id']
+
+                  return {
+                      'Status': 'SUCCESS',
+                      'PhysicalResourceId': handshake_id,
+                      'Data': {
+                          'HandshakeId': handshake_id
+                      }
+                  }
+
+              except Exception as e:
+                  return {
+                      'Status': 'FAILED',
+                      'Reason': str(e)
+                  }
+
+  # Custom Resource para invitar a una cuenta
+  InviteAccountCustomResource:
+    Type: Custom::InviteAccount
+    Properties:
+      ServiceToken: !GetAtt InviteAccountFunction.Arn
+      TargetEmail: !Ref TargetEmail
+      TargetAccountId: !Ref TargetAccountId
+
+Outputs:
+  HandshakeId:
+    Description: "ID de la invitación enviada"
+    Value: !GetAtt InviteAccountCustomResource.HandshakeId

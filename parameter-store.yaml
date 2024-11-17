@@ -23,6 +23,13 @@ Parameters:
     Description: "Valor inicial del parámetro"
     Default: "placeholder"
     NoEcho: true
+  
+  ParameterName:
+    Type: String
+    Description: "Nombre del parámetro (ejemplo: config)"
+    Default: "config"
+    AllowedPattern: "^[a-z][a-z0-9-]*[a-z0-9]$"
+    ConstraintDescription: "Debe usar formato kebab-case (letras minúsculas, números y guiones). Debe comenzar con letra y terminar con letra o número."
 
 Resources:
   # KMS Key para encriptar los parámetros
@@ -99,7 +106,7 @@ Resources:
       - KMSKey
       - KMSKeyAlias
     Properties:
-      Name: !Sub "/${ParameterStoreName}"
+      Name: !Sub "/${ParameterStoreName}/${ParameterName}"
       Type: !Ref ParameterType
       Value: !Ref ParameterValue
       Description: "Parámetro creado para almacenar información"
@@ -116,7 +123,7 @@ Outputs:
     Value: !Sub "${ParameterStoreName}-kms"
   ParameterName:
     Description: "Nombre del parámetro creado en SSM Parameter Store"
-    Value: !Sub "/${ParameterStoreName}"
+    Value: !Sub "/${ParameterStoreName}/${ParameterName}"
   ParameterStoreConsoleLink:
     Description: "Link directo al parámetro en la consola de AWS"
-    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${ParameterStoreName}/description?region=${AWS::Region}"
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/parameters/${ParameterStoreName}/${ParameterName}/description?region=${AWS::Region}"

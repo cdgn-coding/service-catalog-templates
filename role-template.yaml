@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS Service Catalog Template - Crear Roles de IAM con Políticas Personalizadas"
+
+Parameters:
+  RoleName:
+    Type: String
+    Description: "Nombre del rol que deseas crear"
+    AllowedPattern: "^[a-zA-Z0-9+=,.@_-]{1,64}$"
+    ConstraintDescription: "El nombre del rol solo puede contener caracteres alfanuméricos y los símbolos +=,.@_-"
+    
+  PolicyDocument:
+    Type: String
+    Description: "Política en formato JSON que será adjuntada al rol"
+    AllowedPattern: "^\\{[\\s\\S]*\\}$"
+    ConstraintDescription: "Debe ser un documento JSON válido"
+    Default: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "servicecatalog:ListPortfolios",
+            "Resource": "*"
+          }
+        ]
+      }
+
+Resources:
+  # Crear el Rol de IAM
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - lambda.amazonaws.com
+                - ec2.amazonaws.com
+                - servicecatalog.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${RoleName}-policy"
+          PolicyDocument: !Ref PolicyDocument
+
+Outputs:
+  RoleArn:
+    Description: "ARN del Rol de IAM creado"
+    Value: !GetAtt IAMRole.Arn
+  RoleName:
+    Description: "Nombre del Rol de IAM creado"
+    Value: !Ref IAMRole

@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS Service Catalog Template - Asignar un Rol IAM a un Usuario Existente"
+
+Parameters:
+  UserName:
+    Type: String
+    Description: "Nombre del usuario IAM al que se asignará el rol"
+    AllowedPattern: "^[a-zA-Z0-9+=,.@_-]{1,64}$"
+    ConstraintDescription: "El nombre de usuario solo puede contener caracteres alfanuméricos y los símbolos +=,.@_-"
+  
+  RoleName:
+    Type: String
+    Description: "Nombre del rol que se asignará al usuario"
+    AllowedPattern: "^[a-zA-Z0-9+=,.@_-]{1,64}$"
+    ConstraintDescription: "El nombre del rol solo puede contener caracteres alfanuméricos y los símbolos +=,.@_-"
+
+Resources:
+  # Obtener el usuario IAM existente
+  IAMUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref UserName
+
+  # Asignar el rol al usuario mediante una política adjunta
+  IAMUserPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${UserName}-AccessTo-${RoleName}"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${RoleName}"
+      Users:
+        - !Ref IAMUser
+
+Outputs:
+  AssignedRole:
+    Description: "Rol asignado al usuario"
+    Value: !Ref RoleName
+  AssignedUser:
+    Description: "Nombre del usuario al que se ha asignado el rol"
+    Value: !Ref UserName
